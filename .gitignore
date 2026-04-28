@@ -1,0 +1,8 @@
+venv/
+env/
+pycache/
+*.pyc
+instance/
+elephants.db
+.idea/
+.vscode/
