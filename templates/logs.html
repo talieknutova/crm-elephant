@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Журнал событий CRM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800 p-8">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-2xl shadow">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">📖 Системный журнал (Логи)</h1>
+            <a href="{{ url_for('index') }}" class="text-blue-500 hover:underline">← Назад к слонам</a>
+        </div>
+        
+        <div class="space-y-2 max-h-[70vh] overflow-y-auto pr-2">
+            {% for log in logs %}
+            <div class="p-3 border-b border-gray-100 flex items-start gap-4 hover:bg-gray-50 transition">
+                <div class="text-sm font-mono text-gray-400 mt-0.5 whitespace-nowrap">{{ log.log_date }}</div>
+                <div class="text-gray-700">{{ log.action }}</div>
+            </div>
+            {% else %}
+            <p class="text-gray-500 text-center py-4">Журнал пока пуст.</p>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
