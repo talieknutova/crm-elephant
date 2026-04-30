@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Elephant CRM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        
+        <header class="bg-white p-6 rounded-2xl shadow-sm mb-6 flex flex-wrap justify-between items-center gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-700">🐘 Elephant Care CRM</h1>
+                <p class="text-gray-500 font-mono mt-1">Системная дата: <span class="font-bold text-blue-600">{{ state.current_date }}</span></p>
+                <a href="{{ url_for('view_logs') }}" class="text-sm text-blue-500 hover:underline">Журнал событий (Логи)</a>
+            </div>
+            
+            <div class="flex gap-4 items-center">
+                <div class="bg-yellow-50 p-3 rounded-lg text-sm border border-yellow-200">
+                    <p class="font-bold text-yellow-800 mb-1">Склад еды:</p>
+                    <p class="text-green-700">Трава: <span class="font-bold {% if display_grass < 0 %}text-red-500{% endif %}">{{ "%.1f"|format(display_grass) }} кг</span></p>
+                    <p class="text-orange-700">Ветки: <span class="font-bold {% if display_branches < 0 %}text-red-500{% endif %}">{{ "%.1f"|format(display_branches) }} кг</span></p>
+                </div>
+                
+                <form action="{{ url_for('time_travel') }}" method="POST" class="bg-blue-50 p-3 rounded-lg border border-blue-200 flex flex-col items-end">
+                    <div class="flex gap-2 items-center">
+                        <label class="text-xs text-blue-700 font-bold">Перейти на дату:</label>
+                        <input type="date" name="target_date" value="{{ next_day_date.isoformat() }}" required class="border rounded p-1 text-sm">
+                    </div>
+                    <button type="submit" class="mt-2 bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-blue-700 w-full transition">
+                        ⏭ Отправиться
+                    </button>
+                </form>
+            </div>
+        </header>
+
+        {% if is_past %}
+        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded shadow-sm">
+            <b>Внимание! Режим просмотра Истории.</b> Вы смотрите состояние заповедника на {{ state.current_date }}. Изменение данных и взаимодействия заблокированы.
+        </div>
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-6 space-y-2">
+                    {% for category, message in messages %}
+                        <div class="p-4 rounded-xl text-white font-bold {% if category == 'error' %}bg-red-500{% elif category == 'info' %}bg-purple-500{% else %}bg-green-500{% endif %}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div class="lg:col-span-1 space-y-6">
+                <div class="bg-white p-5 rounded-2xl shadow-sm {% if is_past %}opacity-50 pointer-events-none{% endif %}">
+                    <h2 class="font-bold text-lg mb-4">Регистрация слона</h2>
+                    <form action="{{ url_for('add_elephant') }}" method="POST" class="space-y-3 text-sm">
+                        <input type="text" name="name" placeholder="Имя слона" required pattern="^[A-Za-zА-Яа-яЁё\s]+$" class="w-full p-2 border rounded">
+                        <select name="genus" id="genus" required onchange="updateSpecies()" class="w-full p-2 border rounded">
+                            <option value="">-- Выберите Род --</option>
+                            <option value="Loxodonta">Африканские слоны (Loxodonta)</option>
+                            <option value="Elephas">Азиатский слон (Elephas maximus)</option>
+                        </select>
+                        <select name="species" id="species" required class="w-full p-2 border rounded"><option value="">Сначала выберите род</option></select>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label class="text-xs text-gray-500">Дата рождения</label><input type="date" name="birth_date" max="{{ state.current_date }}" required class="w-full p-2 border rounded"></div>
+                            <div><label class="text-xs text-gray-500">Дата прибытия</label><input type="date" name="admission_date" max="{{ state.current_date }}" value="{{ state.current_date }}" required class="w-full p-2 border rounded"></div>
+                        </div>
+                        <input type="number" name="weight_kg" placeholder="Вес (макс 12240)" required max="12240" class="w-full p-2 border rounded">
+                        <button type="submit" class="w-full bg-green-600 text-white font-bold py-2 rounded hover:bg-green-700">Принять</button>
+                    </form>
+                </div>
+                <div class="bg-white p-5 rounded-2xl shadow-sm">
+                    <h2 class="font-bold text-lg mb-4">Закупка провизии</h2>
+                    <form action="{{ url_for('add_food') }}" method="POST" class="space-y-3 text-sm">
+                        <input type="number" name="grass" placeholder="Сено (кг)" class="w-full p-2 border rounded">
+                        <input type="number" name="branches" placeholder="Ветки (кг)" class="w-full p-2 border rounded">
+                        <button type="submit" class="w-full bg-yellow-500 text-white font-bold py-2 rounded hover:bg-yellow-600 transition">Пополнить склад</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="lg:col-span-3">
+                <form action="{{ url_for('index') }}" method="GET" class="bg-white p-4 rounded-2xl shadow-sm mb-4 flex flex-wrap gap-4 items-center border border-gray-200">
+                    <span class="font-bold text-gray-600 text-sm">Фильтры:</span>
+                    <select name="filter_genus" class="border p-1.5 rounded text-sm bg-gray-50" onchange="this.form.submit()">
+                        <option value="">Все виды</option>
+                        <option value="Loxodonta" {% if current_filter_genus == 'Loxodonta' %}selected{% endif %}>Только Африканские</option>
+                        <option value="Elephas" {% if current_filter_genus == 'Elephas' %}selected{% endif %}>Только Азиатские</option>
+                    </select>
+                    <select name="filter_health" class="border p-1.5 rounded text-sm bg-gray-50" onchange="this.form.submit()">
+                        <option value="">Любое здоровье</option>
+                        <option value="true" {% if current_filter_health == 'true' %}selected{% endif %}>Только Здоровые</option>
+                        <option value="false" {% if current_filter_health == 'false' %}selected{% endif %}>Только Больные</option>
+                    </select>
+
+                    <span class="font-bold text-gray-600 text-sm ml-auto">Сортировка:</span>
+                    <select name="sort" class="border p-1.5 rounded text-sm bg-gray-50" onchange="this.form.submit()">
+                        <option value="name" {% if current_sort == 'name' %}selected{% endif %}>Имя</option>
+                        <option value="weight" {% if current_sort == 'weight' %}selected{% endif %}>Вес (Убыв.)</option>
+                        <option value="age" {% if current_sort == 'age' %}selected{% endif %}>Возраст (Старшие)</option>
+                        <option value="species" {% if current_sort == 'species' %}selected{% endif %}>Вид</option>
+                    </select>
+                    <noscript><button type="submit" class="text-sm px-2 bg-blue-100 rounded">Применить</button></noscript>
+                </form>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {% for e in elephants %}
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 relative {% if not e.is_healthy %}border-red-300 bg-red-50{% endif %}">
+                        {% if not is_past %}
+                        <form action="{{ url_for('elephant_action', e_id=e.id, action_type='heaven') }}" method="POST" class="absolute top-2 right-2" onsubmit="return confirm('Вы уверены, что хотите проводить слоника в рай?');">
+                            <button type="submit" class="text-red-300 hover:text-red-600 text-xl" title="Проводить в рай">☁️</button>
+                        </form>
+                        {% endif %}
+
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="text-4xl {% if not e.is_healthy %}grayscale opacity-70{% endif %}">🐘</div>
+                            <div>
+                                <h3 class="text-xl font-bold">{{ e.name }} <span class="text-sm font-normal text-gray-500">({{ e.get_age(state.current_date) }} лет)</span></h3>
+                                <p class="text-xs text-gray-500">{{ e.species }}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 p-2 rounded text-sm mb-3">
+                            <div class="flex items-center gap-2 mb-1">
+                                ⚖️ Вес: 
+                                <form action="{{ url_for('edit_weight', e_id=e.id) }}" method="POST" class="inline-flex gap-1">
+                                    <input type="number" name="weight_kg" value="{{ e.weight_kg }}" class="w-20 p-1 border rounded text-xs font-bold" {% if is_past %}disabled{% endif %}>
+                                    {% if not is_past %}
+                                    <button type="submit" class="bg-blue-100 text-blue-700 px-2 rounded hover:bg-blue-200 text-xs">💾</button>
+                                    {% endif %}
+                                </form>
+                            </div>
+                            <p>🍽 Ест: <b>{{ "%.1f"|format(e.get_food_consumption(state.current_date).grass) }}</b> кг сена | <b>{{ "%.1f"|format(e.get_food_consumption(state.current_date).branches) }}</b> кг веток</p>
+                        </div>
+                        <div class="mb-3">
+                            <div class="flex justify-between text-xs mb-1"><span>Чистота</span> <span>{{ 100 - e.dirt_level }}%</span></div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-yellow-800 h-2 rounded-full" style="width: {{ e.dirt_level }}%"></div>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-2 mt-4">
+                            <form action="{{ url_for('elephant_action', e_id=e.id, action_type='wash') }}" method="POST" class="flex-1">
+                                <button type="submit" class="w-full py-1.5 bg-blue-100 text-blue-700 rounded text-sm font-bold hover:bg-blue-200 disabled:opacity-50" {% if e.dirt_level == 0 or is_past %}disabled{% endif %}>🚿 Помыть</button>
+                            </form>
+                            <form action="{{ url_for('elephant_action', e_id=e.id, action_type='toggle_health') }}" method="POST" class="flex-1">
+                                <button type="submit" class="w-full py-1.5 rounded text-sm font-bold disabled:opacity-50 {% if e.is_healthy %}bg-red-100 text-red-700 hover:bg-red-200{% else %}bg-green-100 text-green-700 hover:bg-green-200{% endif %}" {% if is_past %}disabled{% endif %}>
+                                    {{ '💊 Заболел' if e.is_healthy else '💖 Вылечить' }}
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 col-span-2 text-center py-6">Слонов по заданным фильтрам не найдено.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const speciesMap = {
+            'Loxodonta': ['Саванный слон (Loxodonta africana)', 'Лесной слон (Loxodonta cyclotis)'],
+            'Elephas': ['Индийский слон', 'Суматранский слон', 'Шри-ланкийский слон', 'Борнейский слон']
+        };
+        function updateSpecies() {
+            const sp = document.getElementById('species');
+            sp.innerHTML = '';
+            (speciesMap[document.getElementById('genus').value] || []).forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = opt.textContent = s;
+                sp.appendChild(opt);
+            });
+        }
+    </script>
+</body>
+</html>
